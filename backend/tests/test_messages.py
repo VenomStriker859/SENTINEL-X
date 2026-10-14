@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_create_list_and_get_message(client):
     payload = {
         "device_id": "ESP32-001",
@@ -38,6 +41,29 @@ def test_invalid_message_is_rejected(client):
         "device_id": "ESP32-001",
         "message_id": "msg-invalid",
         "message_type": "text",
+        "content": "   ",
+    })
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("field", ["device_id", "message_id"])
+def test_blank_identifiers_are_rejected(client, field):
+    payload = {
+        "device_id": "ESP32-001",
+        "message_id": "msg-blank",
+        "message_type": "text",
+        "content": "Hello",
+    }
+    payload[field] = "   "
+    assert client.post("/api/messages/", json=payload).status_code == 422
+
+
+@pytest.mark.parametrize("message_type", ["image", "audio"])
+def test_media_message_requires_content_reference(client, message_type):
+    response = client.post("/api/messages/", json={
+        "device_id": "ESP32-001",
+        "message_id": f"msg-{message_type}",
+        "message_type": message_type,
         "content": "   ",
     })
     assert response.status_code == 422
