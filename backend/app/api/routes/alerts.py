@@ -1,14 +1,12 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, StringConstraints
-from typing_extensions import Annotated
 
 from app.services.alert_manager import alert_manager
 
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
-
 
 NonBlankString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -16,8 +14,16 @@ NonBlankString = Annotated[str, StringConstraints(strip_whitespace=True, min_len
 class AlertCreate(BaseModel):
     """Payload used to create an active alert."""
 
-    device_id: Annotated[str, Field(min_length=1, max_length=50, description="Originating device ID")]
-    message: Annotated[NonBlankString, Field(max_length=500, description="Human-readable alert details")]
+    device_id: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=50),
+        Field(description="Originating device ID"),
+    ]
+    message: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=500),
+        Field(description="Human-readable alert details"),
+    ]
     severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = Field(
         default="HIGH",
         description="Alert severity; uppercase values only",
