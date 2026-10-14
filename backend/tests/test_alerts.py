@@ -37,6 +37,13 @@ def test_invalid_severity_returns_validation_error(client, severity):
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("field", ["device_id", "message"])
+def test_blank_alert_fields_are_rejected(client, field):
+    payload = {"device_id": "ESP32-001", "message": "Test alert"}
+    payload[field] = "   "
+    assert client.post("/api/alerts/", json=payload).status_code == 422
+
+
 def test_missing_required_fields_are_rejected(client):
     response = client.post("/api/alerts/", json={"device_id": "ESP32-001"})
     assert response.status_code == 422
