@@ -1,3 +1,6 @@
 fastapi
 uvicorn[standard]
 pydantic
+pytest
+httpx
+typing-extensions
