@@ -23,7 +23,13 @@ def test_create_list_and_get_message(client):
     assert fetched.json()["content"] == "Test message"
 
 
-def test_duplicate_message_returns_conflict(client):
+def test_empty_message_list(client):
+    response = client.get("/api/messages/")
+    assert response.status_code == 200
+    assert response.json() == {"messages": []}
+
+
+def test_duplicate_message_returns_conflict_without_double_counting(client):
     payload = {
         "device_id": "ESP32-001",
         "message_id": "msg-duplicate",
@@ -34,6 +40,7 @@ def test_duplicate_message_returns_conflict(client):
     response = client.post("/api/messages/", json=payload)
     assert response.status_code == 409
     assert response.json()["detail"] == "Duplicate message"
+    assert client.get("/api/devices/ESP32-001").json()["messages_received"] == 1
 
 
 def test_invalid_message_is_rejected(client):
@@ -65,6 +72,16 @@ def test_media_message_requires_content_reference(client, message_type):
         "message_id": f"msg-{message_type}",
         "message_type": message_type,
         "content": "   ",
+    })
+    assert response.status_code == 422
+
+
+def test_unsupported_message_type_is_rejected(client):
+    response = client.post("/api/messages/", json={
+        "device_id": "ESP32-001",
+        "message_id": "msg-video",
+        "message_type": "video",
+        "content": "clip.mp4",
     })
     assert response.status_code == 422
 
