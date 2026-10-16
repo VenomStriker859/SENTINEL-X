@@ -12,6 +12,7 @@ def test_create_list_get_and_resolve_alert(client):
     assert alert["alert_id"]
     assert alert["status"] == "ACTIVE"
     assert alert["severity"] == "CRITICAL"
+    assert alert["created_at"]
     alert_id = alert["alert_id"]
 
     listed = client.get("/api/alerts/")
@@ -25,6 +26,21 @@ def test_create_list_get_and_resolve_alert(client):
     resolved = client.patch(f"/api/alerts/{alert_id}/resolve")
     assert resolved.status_code == 200
     assert resolved.json()["status"] == "RESOLVED"
+
+
+def test_empty_alert_list(client):
+    response = client.get("/api/alerts/")
+    assert response.status_code == 200
+    assert response.json() == {"alerts": []}
+
+
+def test_alert_severity_defaults_to_high(client):
+    response = client.post("/api/alerts/", json={
+        "device_id": "ESP32-001",
+        "message": "Default severity test",
+    })
+    assert response.status_code == 201
+    assert response.json()["severity"] == "HIGH"
 
 
 @pytest.mark.parametrize("severity", ["bad", "critical", ""])
