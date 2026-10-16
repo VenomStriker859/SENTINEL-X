@@ -12,27 +12,34 @@ python -m pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Interactive API documentation:
+The API listens at `http://127.0.0.1:8000` by default.
+
+### Interactive API documentation
+
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
 - OpenAPI JSON: `http://127.0.0.1:8000/openapi.json`
 
 ## Endpoints
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/health` | Service status |
-| POST | `/api/messages/` | Receive a text, image, or audio message |
-| GET | `/api/messages/` | List messages |
-| GET | `/api/messages/{message_id}` | Get one message |
-| GET | `/api/devices/` | List devices observed in incoming messages |
-| GET | `/api/devices/{device_id}` | Get one device |
-| POST | `/api/alerts/` | Create an alert |
-| GET | `/api/alerts/` | List alerts |
-| GET | `/api/alerts/{alert_id}` | Get one alert |
-| PATCH | `/api/alerts/{alert_id}/resolve` | Resolve an alert |
+| Method | Path | Success | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/health` | 200 | Service status |
+| POST | `/api/messages/` | 201 | Receive a text, image, or audio message |
+| GET | `/api/messages/` | 200 | List messages held in memory |
+| GET | `/api/messages/{message_id}` | 200 | Get one message; 404 if absent |
+| GET | `/api/devices/` | 200 | List devices observed in incoming messages |
+| GET | `/api/devices/{device_id}` | 200 | Get one device; 404 if absent |
+| POST | `/api/alerts/` | 201 | Create an alert |
+| GET | `/api/alerts/` | 200 | List alerts held in memory |
+| GET | `/api/alerts/{alert_id}` | 200 | Get one alert; 404 if absent |
+| PATCH | `/api/alerts/{alert_id}/resolve` | 200 | Resolve an alert; 404 if absent |
 
-### Message example
+Invalid request bodies return HTTP 422. Duplicate message IDs return HTTP 409.
+
+## Request examples
+
+### Create a message
 
 ```json
 {
@@ -43,9 +50,9 @@ Interactive API documentation:
 }
 ```
 
-Supported `message_type` values are `text`, `image`, and `audio`. Text messages require non-blank content; image/audio messages require a content reference. Reusing a `message_id` returns HTTP 409.
+Supported `message_type` values are `text`, `image`, and `audio`. IDs must be non-blank; `device_id` is limited to 50 characters and `message_id` to 100 characters. Text messages require non-blank content. Image/audio messages require a non-blank content reference. Each accepted message ID must be unique. A successful request registers/updates the device's last-seen time and received-message count.
 
-### Alert example
+### Create an alert
 
 ```json
 {
@@ -55,18 +62,19 @@ Supported `message_type` values are `text`, `image`, and `audio`. Text messages 
 }
 ```
 
-Allowed severities: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`. Severity defaults to `HIGH`. Creating a valid alert returns HTTP 201. Invalid payloads return HTTP 422; missing message/device/alert IDs return HTTP 404 where applicable.
+Allowed severity values are uppercase `LOW`, `MEDIUM`, `HIGH`, and `CRITICAL`; omitted severity defaults to `HIGH`. Device IDs are limited to 50 characters and alert messages to 500 characters. New alerts start with status `ACTIVE`; the resolve endpoint changes the status to `RESOLVED`.
 
-## Tests
+## Automated tests
 
 Run from the `backend/` directory:
 
 ```bash
+python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Tests use FastAPI's in-process test client and clear the in-memory message, device, and alert state between tests. They do not require a running server or database.
+Tests use FastAPI's in-process test client and clear message, device, and alert state between tests. They do not require a running server or database. The suite covers successful requests, empty lists, validation failures, duplicate messages, device registration/counts, and missing resources.
 
 ## Current limitations
 
-Messages, devices, and alerts are currently held in process memory and are lost when the server restarts. A device appears in the device list after its first accepted message. The health endpoint indicates that the API process responds; it is not a readiness check for external services.
+Messages, devices, and alerts are held in process memory and are lost when the server restarts. A device appears in the device list after its first accepted message. The health endpoint indicates that the API process responds; it is not a readiness check for external services. These endpoints do not persist data.
