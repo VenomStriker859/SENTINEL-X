@@ -1,3 +1,9 @@
+def test_empty_device_list(client):
+    response = client.get("/api/devices/")
+    assert response.status_code == 200
+    assert response.json() == {"devices": []}
+
+
 def test_device_is_registered_by_incoming_message(client):
     response = client.post("/api/messages/", json={
         "device_id": "ESP32-001",
@@ -38,3 +44,4 @@ def test_device_message_count_increments(client):
 def test_unknown_device_returns_404(client):
     response = client.get("/api/devices/unknown-device")
     assert response.status_code == 404
+    assert response.json()["detail"] == "Device not found"
