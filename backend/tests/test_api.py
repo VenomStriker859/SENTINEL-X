@@ -5,6 +5,8 @@ from app.main import app
 from app.services.message_service import message_service
 from app.services.device_manager import device_manager
 from app.services.alert_manager import alert_manager
+from ws.manager import websocket_manager
+from unittest.mock import AsyncMock, patch
 
 client = TestClient(app)
 
@@ -158,3 +160,67 @@ def test_resolve_missing_alert():
     response = client.patch("/api/alerts/unknown-alert/resolve")
 
     assert response.status_code == 404
+
+def test_message_broadcast_to_websocket():
+    payload = {
+        "device_id": "device-ws-1",
+        "message_id": "msg-ws-1",
+        "message_type": "text",
+        "content": "WebSocket integration test"
+    }
+
+    with patch(
+        "app.api.routes.messages.websocket_manager.broadcast",
+        new_callable=AsyncMock
+    ) as broadcast:
+        response = client.post("/api/messages/", json=payload)
+
+    assert response.status_code == 200
+    broadcast.assert_awaited_once()
+
+    event = broadcast.await_args.args[0]
+    assert event["event"] == "new_message"
+    assert event["data"]["message_id"] == "msg-ws-1"
+
+def test_duplicate_message_not_broadcast():
+    payload = {
+        "device_id": "device-ws-2",
+        "message_id": "msg-ws-duplicate",
+        "message_type": "text",
+        "content": "Duplicate test"
+    }
+
+    with client.websocket_connect("/ws") as ws:
+        ws.receive_json()
+
+        first = client.post("/api/messages/", json=payload)
+        assert first.status_code == 200
+
+        event = ws.receive_json()
+        assert event["event"] == "new_message"
+
+        second = client.post("/api/messages/", json=payload)
+        assert second.status_code == 409
+
+        # No event should be emitted for the rejected duplicate.
+        assert websocket_manager.active_count == 1
+
+
+def test_alert_broadcast_to_websocket():
+    payload = {
+        "device_id": "device-ws-alert",
+        "message": "WebSocket alert test",
+        "severity": "HIGH"
+    }
+
+    with client.websocket_connect("/ws") as ws:
+        welcome = ws.receive_json()
+        assert welcome["event"] == "connected"
+
+        response = client.post("/api/alerts/", json=payload)
+        assert response.status_code == 200
+
+        event = ws.receive_json()
+        assert event["event"] == "alert"
+        assert event["data"]["device_id"] == "device-ws-alert"
+        assert event["data"]["message"] == "WebSocket alert test"

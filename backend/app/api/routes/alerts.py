@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.alert_manager import alert_manager
+from ws.events import EventType, build_event
+from ws.manager import websocket_manager
 
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
@@ -14,18 +16,24 @@ class AlertCreate(BaseModel):
 
 
 @router.post("/")
-def create_alert(data: AlertCreate):
+async def create_alert(data: AlertCreate):
     if data.severity not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
         raise HTTPException(
             status_code=400,
             detail="Invalid severity"
         )
 
-    return alert_manager.create_alert(
+    alert = alert_manager.create_alert(
         device_id=data.device_id,
         message=data.message,
         severity=data.severity
     )
+
+    await websocket_manager.broadcast(
+        build_event(EventType.ALERT, alert)
+    )
+
+    return alert
 
 
 @router.get("/")
