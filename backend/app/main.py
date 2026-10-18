@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.routes.messages import router as messages_router
 from app.api.routes.devices import router as devices_router
 from app.api.routes.alerts import router as alerts_router
+from ws import ws_router
 
 app = FastAPI(
     title="SentinelX Backend",
@@ -22,3 +23,4 @@ def health_check():
 app.include_router(messages_router, prefix="/api")
 app.include_router(devices_router, prefix="/api")
 app.include_router(alerts_router, prefix="/api")
+app.include_router(ws_router)
